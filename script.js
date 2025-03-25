@@ -136,101 +136,79 @@ function showResults() {
     card.style.display = 'none';
     resultsScreen.classList.remove('hidden');
     
-    // Trigger confetti
-    const end = Date.now() + 5000; // 5 seconds of animation
-    
-    // Initial burst
-    confetti({
-        particleCount: 150,
-        spread: 180,
-        origin: { y: 0.6 },
-        zIndex: 2000
-    });
-
-    // Cannon effect from corners
-    const duration = 15 * 1000;
-    const animationEnd = Date.now() + duration;
-    let skew = 1;
-
-    function randomInRange(min, max) {
-        return Math.random() * (max - min) + min;
+    // Make sure results screen has the proper structure
+    if (!resultsScreen.querySelector('.results-content')) {
+        const resultsContent = document.createElement('div');
+        resultsContent.className = 'results-content';
+        
+        // Move any existing elements into the content container
+        while (resultsScreen.firstChild) {
+            resultsContent.appendChild(resultsScreen.firstChild);
+        }
+        
+        resultsScreen.appendChild(resultsContent);
     }
 
-    (function frame() {
-        const timeLeft = animationEnd - Date.now();
-        const ticks = Math.max(200, 500 * (timeLeft / duration));
-
-        skew = Math.max(0.8, skew - 0.001);
-
-        confetti({
-            particleCount: 1,
-            startVelocity: 0,
-            ticks: ticks,
-            origin: {
-                x: Math.random(),
-                y: (Math.random() * skew) - 0.2
-            },
-            colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'],
-            shapes: ['circle', 'square'],
-            gravity: randomInRange(0.4, 0.6),
-            scalar: randomInRange(0.8, 1.2),
-            drift: randomInRange(-0.4, 0.4),
-            zIndex: 2000
-        });
-
-        if (timeLeft > 0) {
-            requestAnimationFrame(frame);
-        }
-    }());
-
-    // Fire multiple bursts
-    const burstInterval = setInterval(() => {
-        if (Date.now() > end) {
-            clearInterval(burstInterval);
-            return;
-        }
-
-        confetti({
-            particleCount: 80,
-            angle: randomInRange(60, 120),
-            spread: randomInRange(50, 70),
-            origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 },
-            colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'],
-            startVelocity: randomInRange(30, 60),
-            gravity: 1.2,
-            shapes: ['circle', 'square'],
-            scalar: randomInRange(0.8, 1.2),
-            zIndex: 2000
-        });
-    }, 300);
-
-    // Create results grid - only for rated letters
-    const resultsGrid = document.querySelector('.results-grid');
-    resultsGrid.innerHTML = '';
+    const resultsContent = resultsScreen.querySelector('.results-content');
     
+    // Reset scroll position to top when reopening
+    resultsContent.scrollTop = 0;
+
+    // Update the results content
+    resultsContent.innerHTML = `
+        <h2>Final Ratings</h2>
+        <div class="results-grid"></div>
+        <div class="top-letters">
+            <div class="top-section">
+                <h3>Top 3 Letters</h3>
+                <div id="topList"></div>
+            </div>
+            <div class="bottom-section">
+                <h3>Bottom 3 Letters</h3>
+                <div id="bottomList"></div>
+            </div>
+        </div>
+        <div id="categoryRankingsContainer"></div>
+        <button id="rateAgainButton" class="primary-button">Rate Again</button>
+    `;
+    
+    // Re-add event listener for rate again button
+    document.getElementById('rateAgainButton').addEventListener('click', resetRatings);
+
+    // Get all rated letters with at least one rating
     const ratedLetters = letters.filter(letter => 
         ratings[letter] && Object.keys(ratings[letter]).length > 0
     );
     
+    if (ratedLetters.length === 0) {
+        const resultsGrid = resultsContent.querySelector('.results-grid');
+        resultsGrid.innerHTML = '<div class="no-ratings">No letters have been rated yet</div>';
+        return;
+    }
+
+    // Calculate and display each letter's results
+    const resultsGrid = resultsContent.querySelector('.results-grid');
+    resultsGrid.innerHTML = '';
+
     ratedLetters.forEach((letter, index) => {
         const letterRatings = ratings[letter];
         const averageRating = calculateLetterRating(letterRatings);
-        
+
         const resultCard = document.createElement('div');
         resultCard.className = 'result-card';
         resultCard.style.animationDelay = `${index * 0.05}s`;
-        
+
         let categoryHtml = '<div class="categories-mini">';
         categories.forEach(category => {
             const rating = letterRatings[category.id] || 0;
             categoryHtml += `
-                <div class="category-tag" title="${category.name}: ${rating}/10">
+                <div class="category-tag">
                     ${category.leftEmoji} ${rating}
                 </div>
             `;
         });
         categoryHtml += '</div>';
-        
+
         resultCard.innerHTML = `
             <div class="letter">${letter}</div>
             <div class="rating-value">${averageRating.toFixed(1)}/10</div>
@@ -238,57 +216,73 @@ function showResults() {
         `;
         resultsGrid.appendChild(resultCard);
     });
+
+    // Calculate letter averages and sort by rating
+    const lettersWithAverages = ratedLetters.map(letter => {
+        return {
+            letter,
+            average: calculateLetterRating(ratings[letter])
+        };
+    });
     
-    // Show overall top and bottom 3 - only from rated letters
-    const sortedLetters = ratedLetters.sort((a, b) => 
-        calculateLetterRating(ratings[b]) - calculateLetterRating(ratings[a])
-    );
-    
-    const topList = document.getElementById('topList');
-    const bottomList = document.getElementById('bottomList');
+    const sortedLetters = [...lettersWithAverages].sort((a, b) => b.average - a.average);
+
+    // Get elements to populate
+    const topList = resultsContent.querySelector('#topList');
+    const bottomList = resultsContent.querySelector('#bottomList');
     topList.innerHTML = '';
     bottomList.innerHTML = '';
-    
-    // Top 3
-    sortedLetters.slice(0, 3).forEach((letter, index) => {
-        const averageRating = calculateLetterRating(ratings[letter]);
+
+    // Add top 3 (or fewer if not enough rated)
+    const topCount = Math.min(3, sortedLetters.length);
+    for (let i = 0; i < topCount; i++) {
         const item = document.createElement('div');
         item.className = 'rank-item';
+        item.style.opacity = '1'; // Ensure visibility
         item.innerHTML = `
-            <div class="rank">#${index + 1}</div>
-            <div class="letter">${letter}</div>
-            <div class="rating-value">${averageRating.toFixed(1)}/10</div>
+            <div class="rank">#${i + 1}</div>
+            <div class="letter">${sortedLetters[i].letter}</div>
+            <div class="rating-value">${sortedLetters[i].average.toFixed(1)}/10</div>
         `;
         topList.appendChild(item);
-    });
-    
-    // Bottom 3
-    sortedLetters.slice(-3).reverse().forEach((letter, index) => {
-        const averageRating = calculateLetterRating(ratings[letter]);
-        const item = document.createElement('div');
-        item.className = 'rank-item';
-        item.innerHTML = `
-            <div class="rank">#${sortedLetters.length - 2 + index}</div>
-            <div class="letter">${letter}</div>
-            <div class="rating-value">${averageRating.toFixed(1)}/10</div>
-        `;
-        bottomList.appendChild(item);
-    });
+    }
 
-    // Show category-based rankings - only for rated letters
-    const categoryRankings = document.createElement('div');
-    categoryRankings.className = 'category-rankings';
+    // Add bottom 3 (or fewer if not enough rated)
+    const bottomCount = Math.min(3, sortedLetters.length);
+    for (let i = 0; i < bottomCount; i++) {
+        const idx = sortedLetters.length - 1 - i;
+        if (idx >= 0) {
+            const item = document.createElement('div');
+            item.className = 'rank-item';
+            item.style.opacity = '1'; // Ensure visibility
+            item.innerHTML = `
+                <div class="rank">#${sortedLetters.length - i}</div>
+                <div class="letter">${sortedLetters[idx].letter}</div>
+                <div class="rating-value">${sortedLetters[idx].average.toFixed(1)}/10</div>
+            `;
+            bottomList.appendChild(item);
+        }
+    }
 
+    // Create category rankings
+    const categoryRankingsContainer = document.getElementById('categoryRankingsContainer');
+    categoryRankingsContainer.className = 'category-rankings';
+    categoryRankingsContainer.innerHTML = '';
+
+    // Create category-specific rankings
     categories.forEach((category, categoryIndex) => {
-        // Sort letters by this category's rating - only rated ones
-        const sortedByCategory = ratedLetters
-            .filter(letter => ratings[letter][category.id])
-            .sort((a, b) => ratings[b][category.id] - ratings[a][category.id]);
-
+        // Sort letters by this category's rating
+        const categoryRankings = ratedLetters
+            .map(letter => ({
+                letter,
+                rating: ratings[letter][category.id] || 0
+            }))
+            .filter(item => item.rating > 0)
+            .sort((a, b) => b.rating - a.rating);
+        
         const categorySection = document.createElement('div');
         categorySection.className = 'category-section';
-        categorySection.style.animationDelay = `${categoryIndex * 0.1}s`;
-
+        
         let categoryContent = `
             <h3>
                 <span class="emoji">${category.leftEmoji}</span>
@@ -297,19 +291,19 @@ function showResults() {
             </h3>
         `;
 
-        // Show top letters for this category (up to 3, but no more than available)
-        const topCount = Math.min(3, sortedByCategory.length);
-        if (topCount > 0) {
-            sortedByCategory.slice(0, topCount).forEach((letter, index) => {
-                const rating = ratings[letter][category.id];
+        // Show top 3 for this category (or fewer if not enough)
+        if (categoryRankings.length > 0) {
+            const topCategoryCount = Math.min(3, categoryRankings.length);
+            for (let i = 0; i < topCategoryCount; i++) {
+                const rankItem = categoryRankings[i];
                 categoryContent += `
-                    <div class="rank-item" style="animation-delay: ${index * 0.1}s">
-                        <div class="rank">#${index + 1}</div>
-                        <div class="letter">${letter}</div>
-                        <div class="rating-value">${rating}/10</div>
+                    <div class="rank-item" style="opacity: 1;">
+                        <div class="rank">#${i + 1}</div>
+                        <div class="letter">${rankItem.letter}</div>
+                        <div class="rating-value">${rankItem.rating}/10</div>
                     </div>
                 `;
-            });
+            }
         } else {
             categoryContent += `
                 <div class="no-ratings">
@@ -319,15 +313,33 @@ function showResults() {
         }
 
         categorySection.innerHTML = categoryContent;
-        categoryRankings.appendChild(categorySection);
+        categoryRankingsContainer.appendChild(categorySection);
     });
 
-    // Only add category rankings if we have any rated letters
-    if (ratedLetters.length > 0) {
-        // Add category rankings after the overall rankings
-        const existingRankings = resultsScreen.querySelector('.top-letters');
-        existingRankings.insertAdjacentElement('afterend', categoryRankings);
-    }
+    // Trigger confetti with high z-index
+    confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        zIndex: 2000
+    });
+
+    setTimeout(() => {
+        confetti({
+            particleCount: 50,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            zIndex: 2000
+        });
+        confetti({
+            particleCount: 50,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            zIndex: 2000
+        });
+    }, 500);
 }
 
 // Update statistics
@@ -360,10 +372,6 @@ function updateStats() {
 
 // Random fill function
 function randomFill() {
-    // Keep track of current letter if in the middle of rating
-    const currentLetter = currentIndex < letters.length ? letters[currentIndex] : null;
-    const currentRatings = currentLetter ? ratings[currentLetter] : null;
-
     // Fill all unrated categories for all letters
     letters.forEach(letter => {
         if (!ratings[letter]) {
@@ -380,12 +388,7 @@ function randomFill() {
     // Save to localStorage
     localStorage.setItem('letterRatings', JSON.stringify(ratings));
 
-    // If we were in the middle of rating, keep the current letter's original ratings
-    if (currentLetter && currentRatings) {
-        ratings[currentLetter] = { ...ratings[currentLetter], ...currentRatings };
-    }
-
-    // Show results since all letters are now rated
+    // Update stats and show results
     updateStats();
     showResults();
 }
@@ -562,4 +565,22 @@ document.addEventListener('DOMContentLoaded', () => {
         ratings = JSON.parse(savedRatings);
     }
     resetRatings();
+});
+
+// Add event listeners after DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Close modal with ESC key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !resultsScreen.classList.contains('hidden')) {
+            resetRatings();
+        }
+    });
+
+    // Close modal when clicking outside
+    resultsScreen.addEventListener('click', function(event) {
+        // If the click is directly on the resultsScreen (backdrop) and not on its children
+        if (event.target === resultsScreen) {
+            resetRatings();
+        }
+    });
 }); 
