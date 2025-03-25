@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russian Alphabet Rater</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Russian Alphabet Rater</h1>
+        <p class="subtitle">Rate each letter of the Russian alphabet in different categories</p>
+
+        <div class="progress-bar">
+            <div id="progress"></div>
+        </div>
+
+        <div class="card-container">
+            <div id="currentCard" class="card">
+                <div class="letter-section">
+                    <div class="letter">А</div>
+                </div>
+                <div class="categories">
+                    <div class="category">
+                        <label>✨ Aesthetics ✨</label>
+                        <div class="rating" data-category="aesthetics">
+                            <input type="range" min="1" max="10" value="5" class="slider">
+                            <span class="rating-value">5</span>
+                        </div>
+                    </div>
+                    <div class="category">
+                        <label>🔊 Sound 🔊</label>
+                        <div class="rating" data-category="sound">
+                            <input type="range" min="1" max="10" value="5" class="slider">
+                            <span class="rating-value">5</span>
+                        </div>
+                    </div>
+                    <div class="category">
+                        <label>✍️ Writing Flow ✍️</label>
+                        <div class="rating" data-category="writing">
+                            <input type="range" min="1" max="10" value="5" class="slider">
+                            <span class="rating-value">5</span>
+                        </div>
+                    </div>
+                    <div class="category">
+                        <label>🎯 Uniqueness 🎯</label>
+                        <div class="rating" data-category="uniqueness">
+                            <input type="range" min="1" max="10" value="5" class="slider">
+                            <span class="rating-value">5</span>
+                        </div>
+                    </div>
+                    <div class="category">
+                        <label>🎭 Cultural Impact 🎭</label>
+                        <div class="rating" data-category="cultural">
+                            <input type="range" min="1" max="10" value="5" class="slider">
+                            <span class="rating-value">5</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <h2>Statistics</h2>
+            <p>Average rating: <span id="averageRating">0.0</span>/10</p>
+            <p>Total letters rated: <span id="totalRated">0</span>/33</p>
+            <div class="button-group">
+                <button id="resetButton" class="reset-button">Reset All Ratings</button>
+                <button id="randomFillButton" class="random-fill-button">Random Fill</button>
+            </div>
+        </div>
+
+        <div id="resultsScreen" class="results-screen hidden">
+            <h2>Final Ratings</h2>
+            <div class="results-grid"></div>
+            <div class="top-letters">
+                <div class="top-section">
+                    <h3>Top 3 Letters</h3>
+                    <div id="topList"></div>
+                </div>
+                <div class="bottom-section">
+                    <h3>Bottom 3 Letters</h3>
+                    <div id="bottomList"></div>
+                </div>
+            </div>
+            <button id="rateAgainButton" class="primary-button">Rate Again</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
